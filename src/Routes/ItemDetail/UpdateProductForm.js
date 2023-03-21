@@ -27,7 +27,7 @@ export const UpdateProductForm = ({
     return descriptions;
   };
 
-  const { register, control, handleSubmit } = useForm({
+  const { register, control, handleSubmit, setValue } = useForm({
     defaultValues: defaultDescriptions(),
   });
   const { append, fields, remove } = useFieldArray({
@@ -179,6 +179,22 @@ export const UpdateProductForm = ({
         </Form>
       </Modal.Body>
       <Modal.Footer>
+        <Button
+          onClick={() => {
+            setValue("stock", 1);
+            setValue("status", "available");
+          }}
+        >
+          Set Values Positivos
+        </Button>
+        <Button
+          onClick={() => {
+            setValue("stock", 0);
+            setValue("status", "unavailable");
+          }}
+        >
+          Set Values Negativos
+        </Button>
         <Button onClick={handleSubmit(onSubmit)}>Confirmar</Button>
         <Button onClick={close} variant="danger">
           Cancelar

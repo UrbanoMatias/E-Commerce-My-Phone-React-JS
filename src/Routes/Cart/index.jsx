@@ -52,27 +52,6 @@ const Cart = (props) => {
     });
   };
 
-  const updateCart = () => {
-    let productsToSend = [];
-    Object.keys(input).forEach((key) =>
-      productsToSend.push({ product: key, quantity: input[key] })
-    );
-    cartService.updateCart({
-      cid: cart._id,
-      body: { products: productsToSend },
-      callbackSuccess: callbackSuccessUpdateCart,
-      callbackError: callbackErrorUpdateCart,
-    });
-  };
-
-  const itemAvailable = () => {
-    cartService.getCartById({
-      cid: currentUser.cart,
-      callbackSuccess: callbackSuccessGetCart,
-      callbackError: callbackErrorGetCart,
-    });
-  };
-
   const handleInputChange = async (id, quantity, stock) => {
     setItemCountLoading(true);
     if (quantity > stock) {
@@ -93,7 +72,7 @@ const Cart = (props) => {
     }
   };
 
-  const finishPurchase = () => {
+  const finishPurchase = async () => {
     Swal.fire({
       title: "¿Confirmar compra?",
       icon: "question",
@@ -106,69 +85,13 @@ const Cart = (props) => {
       cancelButtonColor: "red",
     }).then((result) => {
       if (result.isConfirmed) {
-        cartService.getCartById({
-          cid: currentUser.cart,
-          callbackSuccess: callbackSuccessGetCart,
-          callbackError: callbackErrorGetCart,
+        cartService.finishPurchase({
+          cid: cart._id,
+          callbackSuccess: callbackSuccessFinishPurchase,
+          callbackError: callbackErrorFinishPurchase,
         });
-        for (const element of cart.products) {
-          console.log(element);
-          if (element.product.stock === 0) {
-            Swal.fire({
-              title: "Producto sin stock",
-              icon: "error",
-              text: "En el proceso de alguno de los productos de tu carrito se ha agotado",
-            }).then((result) => {
-              deleteProduct(element.product._id);
-              window.location.replace("/");
-            });
-          } else {
-            cartService.finishPurchase({
-              cid: cart._id,
-              callbackSuccess: callbackSuccessFinishPurchase,
-              callbackError: callbackErrorFinishPurchase,
-            });
-          }
-        }
       }
     });
-
-    // for (const element of cart.products) {
-    //   console.log(element);
-    //   if (element.product.stock === 0) {
-    //     Swal.fire({
-    //       title: "Producto sin stock",
-    //       icon: "error",
-    //       text: "En el proceso de alguno de los productos de tu carrito se ha agotado",
-    //     });
-    //   } else if (element.quantity > element.product.stock) {
-    //     Swal.fire({
-    //       title: "La cantidad de stock del producto ha cambiado",
-    //       icon: "error",
-    //       text: `En el proceso de compra el stock del producto ${element.product.title} ha cambiado, la cantidad de stock disponible ahora es de ${element.product.stock}`,
-    //     });
-    //   } else {
-    //     Swal.fire({
-    //       title: "¿Confirmar compra?",
-    //       icon: "question",
-    //       text: "Esta acción es irreversible, el cargo se hará al instante",
-    //       showConfirmButton: true,
-    //       confirmButtonText: "¡LO QUIERO YA!",
-    //       confirmButtonColor: "green",
-    //       showCancelButton: true,
-    //       cancelButtonText: "Cancelar",
-    //       cancelButtonColor: "red",
-    //     }).then((result) => {
-    //       if (result.isConfirmed) {
-    //         cartService.finishPurchase({
-    //           cid: cart._id,
-    //           callbackSuccess: callbackSuccessFinishPurchase,
-    //           callbackError: callbackErrorFinishPurchase,
-    //         });
-    //       }
-    //     });
-    //   }
-    // }
   };
   //CALLBACKS
   const callbackSuccessGetCart = (response) => {
@@ -199,13 +122,21 @@ const Cart = (props) => {
       Swal.fire({
         title: "Sin stock",
         icon: "error",
-        text: "En el proceso de compra algunos de los productos se ha quedado sin stock.",
-        timer: 5000,
+        text: `En el proceso de compra el producto ${response.data.prodTitle} se ha quedado sin stock.`,
+      }).then((result) => {
+        setItemCountLoading(false);
       });
-      console.log(cart.products);
-      deleteProduct(response.data.productOutStock);
-      setItemCountLoading(false);
-    } else {
+    }
+    if (response.data.stockLimitation) {
+      Swal.fire({
+        title: "Algunos productos tienen stock limitado",
+        icon: "warning",
+        text: `El producto ${response.data.prodTitle} tiene un stock limitado, por lo que decidimos darte la cantidad máxima disponible de este producto.`,
+      }).then((result) => {
+        setItemCountLoading(false);
+      });
+    }
+    if (response.data.canBuy) {
       Swal.fire({
         title: "Carrito actualizado",
         icon: "success",
@@ -220,14 +151,30 @@ const Cart = (props) => {
     console.log(error.response.data);
   };
   const callbackSuccessFinishPurchase = (response) => {
-    Swal.fire({
-      icon: "success",
-      title: "¡Compra finalizada",
-      text: "¡Felicidades! Los productos solicitados han sido procesados y están en proceso de envío",
-      timer: 3000,
-    }).then((result) => {
-      window.location.replace("/");
-    });
+    if (response.data.stockLimitation) {
+      Swal.fire({
+        title: "Algunos productos tienen stock limitado",
+        icon: "warning",
+        text: `El producto ${response.data.prodTitle} tiene un stock limitado, por lo que decidimos darte la cantidad máxima disponible de este producto.`,
+      });
+    }
+    if (response.data.prodOutStock) {
+      Swal.fire({
+        title: "Sin stock",
+        icon: "error",
+        text: `En el proceso de compra el producto ${response.data.prodOutStock.title} se ha quedado sin stock.`,
+      });
+    }
+    if (response.data.canPurchase) {
+      Swal.fire({
+        icon: "success",
+        title: "¡Compra finalizada",
+        text: `¡Felicidades! Los productos solicitados ${response.data.data} han sido procesados y están en proceso de envío`,
+        timer: 3000,
+      }).then((result) => {
+        window.location.replace("/");
+      });
+    }
   };
   const callbackErrorFinishPurchase = (error) => {
     console.log(error);
@@ -328,15 +275,6 @@ const Cart = (props) => {
                                   <Spinner animation="border" size="sm" />
                                 </div>
                               </div>
-                              {/* <div
-                              className={
-                                element.product.stock === 0
-                                  ? "widgetStock"
-                                  : "hiddenStock widgetStock"
-                              }
-                            >
-                              <p>producto sin stock</p>
-                            </div> */}
                             </div>
                           )}
                         </td>
